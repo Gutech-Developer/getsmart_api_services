@@ -1,0 +1,55 @@
+info:
+  name: Get All Diagnostic Tests
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}{{apiPrefix}}/diagnostic-tests?page=1&limit=10"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('Response has pagination', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('diagnosticTests');
+            expect(json.data).to.have.property('pagination');
+            expect(json.data.pagination).to.have.property('currentPage');
+            expect(json.data.pagination).to.have.property('totalPages');
+            expect(json.data.pagination).to.have.property('totalItems');
+        });
+
+        test('Each test has totalQuestions count', function () {
+            const json = res.getBody();
+            if (json.data.diagnosticTests.length > 0) {
+                expect(json.data.diagnosticTests[0]).to.have.property('totalQuestions');
+            }
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Authenticated** — Mendapatkan daftar semua tes diagnostik dengan pagination.
+
+  **Query Parameters:**
+  - `page` (optional, default: 1)
+  - `limit` (optional, default: 10, max: 50)
+  - `search` (optional): Cari berdasarkan nama tes (case-insensitive)
+
+  **Response:**
+  - `diagnosticTests[]` — daftar tes dengan info teacher + totalQuestions
+  - `pagination` — currentPage, totalPages, totalItems, hasNextPage, hasPrevPage

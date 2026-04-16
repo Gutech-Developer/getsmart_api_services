@@ -1,0 +1,76 @@
+info:
+  name: Create Subject (with optional E-LKPD)
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/subjects"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "subjectName": "Matematika Kelas 7 — Aljabar",
+        "description": "Materi aljabar dasar untuk siswa kelas 7 MTs.",
+        "subjectFileUrl": "https://drive.google.com/file/d/example-aljabar.pdf",
+        "videoUrl": "https://youtube.com/watch?v=aljabar-intro",
+        "eLKPD": {
+          "title": "Lembar Kerja Aljabar Dasar",
+          "description": "Kerjakan soal-soal berikut untuk menguji pemahaman Anda.",
+          "fileUrl": "https://drive.google.com/file/d/elkpd-aljabar.pdf"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 201', function () {
+            expect(res.getStatus()).to.equal(201);
+        });
+
+        test('Response has subject and eLKPD', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('subject');
+            expect(json.data).to.have.property('eLKPD');
+            expect(json.data.subject).to.have.property('id');
+        });
+
+        // Save subjectId for use in other requests
+        if (res.getStatus() === 201) {
+            const json = res.getBody();
+            bru.setVar('subjectId', json.data.subject.id);
+            if (json.data.eLKPD) {
+                bru.setVar('elkpdId', json.data.eLKPD.id);
+            }
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Teacher only** — Membuat materi baru beserta E-LKPD opsional dalam satu request (atomic transaction).
+
+  **Body:**
+  - `subjectName` (required) — nama materi, maks 255 karakter
+  - `description` (optional) — deskripsi materi
+  - `subjectFileUrl` (required) — URL file materi (PDF, PPT, dll)
+  - `videoUrl` (optional) — URL video penjelasan
+  - `eLKPD` (optional) — data E-LKPD yang langsung diikat ke materi ini
+    - `title` (required) — judul E-LKPD
+    - `description` (optional)
+    - `fileUrl` (required) — URL file E-LKPD
+
+  **Response:**
+  - `subject` — objek materi yang baru dibuat
+  - `eLKPD` — objek E-LKPD (jika dikirim)

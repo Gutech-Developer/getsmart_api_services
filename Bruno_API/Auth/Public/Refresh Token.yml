@@ -1,0 +1,48 @@
+info:
+  name: Refresh Token
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/auth/refresh"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "refreshToken": "{{refreshToken}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Refresh token berhasil (200)', function () {
+            expect(res.getStatus()).to.equal(200);
+            expect(json.success).to.be.true;
+        });
+
+        // ✅ Auto-capture NEW tokens (token rotation)
+        if (json.success && json.data) {
+            bru.setVar('accessToken', json.data.tokens.accessToken);
+            bru.setVar('refreshToken', json.data.tokens.refreshToken);
+            console.log('✅ Tokens baru tersimpan otomatis! (Token Rotation)');
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Refresh access token menggunakan refresh token yang tersimpan.
+  Otomatis menggunakan `{{refreshToken}}` dari collection variable.
+
+  **Token Rotation:** Refresh token lama dihapus, token baru digenerate.

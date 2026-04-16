@@ -7,12 +7,13 @@ export interface SubjectAttributes {
   subjectName: string;
   description: string | null;
   subjectFileUrl: string;
+  videoUrl: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface SubjectCreationAttributes
-  extends Optional<SubjectAttributes, "id" | "description" | "createdAt" | "updatedAt"> {}
+  extends Optional<SubjectAttributes, "id" | "description" | "videoUrl" | "createdAt" | "updatedAt"> {}
 
 class Subject extends Model<SubjectAttributes, SubjectCreationAttributes> implements SubjectAttributes {
   public id!: string;
@@ -20,6 +21,7 @@ class Subject extends Model<SubjectAttributes, SubjectCreationAttributes> implem
   public subjectName!: string;
   public description!: string | null;
   public subjectFileUrl!: string;
+  public videoUrl!: string | null;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -49,6 +51,10 @@ Subject.init(
     subjectFileUrl: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    videoUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
   },
   {

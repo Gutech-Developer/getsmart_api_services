@@ -1,0 +1,74 @@
+info:
+  name: Delete Diagnostic Test
+  type: http
+  seq: 7
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}{{apiPrefix}}/diagnostic-tests/{{diagnosticTestId}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  body:
+    type: json
+    data: ""
+  auth: inherit
+
+runtime:
+  variables:
+    - name: diagnosticTestId
+      value: 44d2b88c-a482-47f7-83a8-8261b6bdaad1
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Create diagnostic test berhasil (201)', function () {
+            expect(res.getStatus()).to.equal(201);
+            expect(json.success).to.equal(true);
+            expect(json.message).to.include('berhasil dibuat');
+        });
+
+        test('Response has diagnostic test data', function () {
+            expect(json.data).to.have.property('id');
+            expect(json.data).to.have.property('testName');
+            expect(json.data).to.have.property('teacherId');
+        });
+
+        test('Response has nested packages', function () {
+            expect(json.data).to.have.property('packages');
+            expect(json.data.packages.length).to.be.greaterThan(0);
+        });
+
+        // Auto-capture diagnostic test ID
+        if (json.data && json.data.id) {
+            bru.setEnvVar('diagnosticTestId', json.data.id);
+            console.log('✅ diagnosticTestId tersimpan: ' + json.data.id);
+        }
+
+        if (json.data && json.data.teacherId) {
+            bru.setEnvVar('currentTeacherId', json.data.teacherId);
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **TEACHER only** — Membuat tes diagnostik lengkap dengan paket soal, soal, opsi jawaban, dan pembahasan.
+
+  **Alur:**
+  1. Login sebagai TEACHER terlebih dahulu → accessToken otomatis tersimpan
+  2. Hit endpoint ini → diagnostic test + semua nested data dibuat dalam 1 transaction
+
+  **Validasi:**
+  - Setiap soal harus memiliki tepat 1 jawaban benar
+  - Setiap soal harus memiliki minimal 2 opsi jawaban
+  - Opsi jawaban tidak boleh duplikat per soal
+  - Soal harus punya textQuestion atau imageQuestionUrl
+
+  **Auto-capture:** `diagnosticTestId`, `currentTeacherId`

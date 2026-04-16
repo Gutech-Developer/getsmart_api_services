@@ -1,0 +1,73 @@
+opencollection: 1.0.0
+
+info:
+  name: GetSmart
+
+request:
+  auth:
+    type: apikey
+    key: x-internal-api-key
+    value: "{{internalApiKey}}"
+    placement: header
+  variables:
+    - name: accessToken
+      value: ""
+    - name: refreshToken
+      value: ""
+    - name: currentUserId
+      value: ""
+    - name: currentUserEmail
+      value: ""
+    - name: tempToken
+      value: ""
+    - name: resetToken
+      value: ""
+  scripts:
+    - type: before-request
+      code: |-
+        // Collection-level pre-request: pastikan baseUrl tersedia
+        if (!bru.getEnvVar('baseUrl')) {
+            console.warn('⚠️ baseUrl belum diset. Pilih environment terlebih dahulu!');
+        }
+
+docs:
+  content: |-
+    GetSmart E-Learning Platform API Collection
+
+    ## Setup
+    1. Import environments dari folder `postman/environments/`
+    2. Pilih environment **GetSmart - Development** untuk testing lokal
+    3. Token akan otomatis tersimpan setelah Register/Login berhasil
+
+    ## Variabel Collection
+    - `accessToken` → Otomatis terisi setelah register/login
+    - `refreshToken` → Otomatis terisi setelah register/login
+    - `currentUserId` → Otomatis terisi dari response
+    - `currentUserEmail` → Otomatis terisi dari response
+    - `tempToken` → Otomatis terisi dari Google OAuth Step 2 (user baru)
+    - `resetToken` → Otomatis terisi dari Forgot Password - Verify
+
+    ## Register Flow (Email Activation)
+    1. **Register** → POST /auth/register → akun dibuat (inactive) + email aktivasi terkirim
+    2. Cek email → copy activation token
+    3. **Activation - Verify** → GET /auth/activation/verify?token=... → akun aktif + dapat tokens
+    4. Jika token expired → **Activation - Resend** → POST /auth/activation/resend
+
+    ## Forgot Password Flow
+    1. **Forgot Password** → POST /auth/forgot-password → email reset password terkirim
+    2. Cek email → copy token
+    3. **Forgot Password - Verify** → GET /auth/forgot-password/verify?token=... → dapat resetToken
+    4. **Reset Password** → POST /auth/reset-password → set password baru
+
+    ## Google OAuth Flow (Authorization Code)
+    1. **Step 1** → GET /auth/google/url → dapat consent URL
+    2. Buka URL di browser → login Google → copy `code` dari redirect
+    3. **Step 2** → POST /auth/google/callback → kirim code
+    4. **Step 3** → POST /auth/google/complete-profile (hanya user baru)
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

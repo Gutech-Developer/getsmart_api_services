@@ -11,6 +11,11 @@ export enum AuthProviderEnum {
   MAGIC_LINK = "MAGIC_LINK",
 }
 
+export enum MagicLinkPurposeEnum {
+  ACTIVATION = "ACTIVATION",
+  FORGOT_PASSWORD = "FORGOT_PASSWORD",
+}
+
 export enum NotificationTypeEnum {
   NEW_LEARNING_MODULE = "NEW_LEARNING_MODULE",
   MODULE_DEADLINE_SOON = "MODULE_DEADLINE_SOON",

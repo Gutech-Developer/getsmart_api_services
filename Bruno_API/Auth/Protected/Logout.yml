@@ -1,0 +1,43 @@
+info:
+  name: Logout
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/auth/logout"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Logout berhasil (200)', function () {
+            expect(res.getStatus()).to.equal(200);
+            expect(json.success).to.be.true;
+        });
+
+        // ✅ Clear tokens setelah logout
+        if (res.getStatus() === 200) {
+            bru.setVar('accessToken', '');
+            bru.setVar('refreshToken', '');
+            bru.setVar('currentUserId', '');
+            bru.setVar('currentUserEmail', '');
+            console.log('🔓 Tokens & user info cleared setelah logout');
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Logout user dan hapus semua refresh token.
+
+  **Requires:** Bearer token di header Authorization.

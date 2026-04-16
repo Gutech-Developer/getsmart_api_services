@@ -20,6 +20,11 @@ export const authenticate = (
     const token = authHeader.split(" ")[1];
     const decoded = verifyAccessToken(token);
 
+    if (!decoded.isActive) {
+      sendError(res, 403, "Akun tidak aktif. Hubungi administrator.");
+      return;
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
@@ -41,6 +46,11 @@ export const authorize = (...roles: SystemRoleEnum[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       sendError(res, 401, "Unauthorized");
+      return;
+    }
+
+    if (!req.user.isActive) {
+      sendError(res, 403, "Akun tidak aktif. Hubungi administrator.");
       return;
     }
 

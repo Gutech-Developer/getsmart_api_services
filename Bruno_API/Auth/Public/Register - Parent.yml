@@ -1,0 +1,76 @@
+info:
+  name: Register - Parent
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/auth/register"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "ortu1@test.com",
+        "password": "password123",
+        "fullName": "Bapak Rahman",
+        "phoneNumber": "081344556677",
+        "role": "PARENT",
+        "province": "Aceh",
+        "city": "Banda Aceh"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Register berhasil (201)', function () {
+            expect(res.getStatus()).to.equal(201);
+            expect(json.success).to.be.true;
+            expect(json.message).to.include('Registrasi berhasil');
+        });
+
+        test('User is inactive (pending activation)', function () {
+            expect(json.data.user.isActive).to.be.false;
+        });
+
+        test('Response contains user data', function () {
+            expect(json.data.user).to.have.property('id');
+            expect(json.data.user).to.have.property('email');
+            expect(json.data.user).to.have.property('role');
+        });
+
+        test('Response does NOT contain tokens (need activation first)', function () {
+            expect(json.data).to.not.have.property('tokens');
+        });
+
+        if (json.success && json.data && json.data.user) {
+            bru.setVar('currentUserEmail', json.data.user.email);
+            bru.setVar('currentUserId', json.data.user.id);
+            console.log('📧 Email aktivasi telah dikirim ke: ' + json.data.user.email);
+            console.log('➡️ Cek email, lalu gunakan "Activation - Verify" untuk aktivasi akun.');
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Register user baru sebagai PARENT.
+  Akun akan dibuat dengan status **inactive**. Email aktivasi otomatis dikirim.
+
+  **Flow:**
+  1. Register → akun dibuat (isActive=false) + email aktivasi terkirim
+  2. Cek email → klik link aktivasi / copy token
+  3. Hit "Activation - Verify" → akun aktif + dapat tokens
+
+  **Required fields:** email, password, fullName, phoneNumber, role
+
+  **Optional fields:** province, city

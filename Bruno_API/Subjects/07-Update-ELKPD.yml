@@ -1,0 +1,47 @@
+info:
+  name: Update E-LKPD
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{baseUrl}}{{apiPrefix}}/subjects/{{subjectId}}/elkpd/{{elkpdId}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Lembar Kerja — Versi Revisi",
+        "fileUrl": "https://drive.google.com/file/d/elkpd-revised.pdf"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('ELKPD updated', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Teacher only** — Mengubah data E-LKPD yang sudah ada. Minimal satu field.
+
+  **Path Params:**
+  - `subjectId` — UUID materi induk
+  - `elkpdId` — UUID E-LKPD

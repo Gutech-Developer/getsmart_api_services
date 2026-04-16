@@ -1,0 +1,66 @@
+info:
+  name: Activation - Verify
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}{{apiPrefix}}/auth/activation/verify?token=<ACTIVATION_TOKEN>"
+  params:
+    - name: token
+      value: <ACTIVATION_TOKEN>
+      type: query
+      description: Token aktivasi dari email
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Aktivasi berhasil (200)', function () {
+            expect(res.getStatus()).to.equal(200);
+            expect(json.success).to.be.true;
+            expect(json.message).to.eql('Akun berhasil diaktifkan');
+        });
+
+        // ✅ Auto-capture tokens setelah aktivasi
+        if (json.success && json.data && json.data.tokens) {
+            bru.setVar('accessToken', json.data.tokens.accessToken);
+            bru.setVar('refreshToken', json.data.tokens.refreshToken);
+            console.log('✅ accessToken & refreshToken tersimpan otomatis!');
+
+            if (json.data.user) {
+                bru.setVar('currentUserId', json.data.user.id);
+                bru.setVar('currentUserEmail', json.data.user.email);
+                console.log('✅ userId & userEmail tersimpan: ' + json.data.user.email);
+            }
+        }
+
+        test('User is now active', function () {
+            expect(json.data.user.isActive).to.be.true;
+        });
+
+        test('Response contains tokens', function () {
+            expect(json.data.tokens).to.have.property('accessToken');
+            expect(json.data.tokens).to.have.property('refreshToken');
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Verifikasi token aktivasi akun dari email.
+  Ganti `<ACTIVATION_TOKEN>` dengan token dari email aktivasi.
+
+  **Flow:**
+  1. User register → dapat email aktivasi
+  2. User klik link / copy token dari email
+  3. Hit endpoint ini → akun aktif + dapat tokens
+
+  Token hanya bisa digunakan 1x dan berlaku 15 menit.
+  Jika token expired, gunakan "Activation - Resend" untuk kirim ulang.

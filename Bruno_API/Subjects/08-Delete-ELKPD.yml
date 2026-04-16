@@ -1,0 +1,35 @@
+info:
+  name: Delete E-LKPD
+  type: http
+  seq: 8
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}{{apiPrefix}}/subjects/{{subjectId}}/elkpd/{{elkpdId}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: none
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Teacher only** — Menghapus satu E-LKPD dari materi.
+
+  **Path Params:**
+  - `subjectId` — UUID materi induk
+  - `elkpdId` — UUID E-LKPD yang akan dihapus

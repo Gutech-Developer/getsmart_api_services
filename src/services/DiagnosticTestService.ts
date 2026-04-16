@@ -368,12 +368,12 @@ class DiagnosticTestService {
     await diagnosticTest.destroy();
   };
                       
-  private async _reconcileAll(
+  private _reconcileAll = async (
     diagnosticTestId: string,
     existingPkgsData: any[],
     inputPackages: UpsertTestQuestionPackageInput[],
     transaction: Transaction,
-  ): Promise<void> {    
+  ): Promise<void> => {    
 
     const existingPkgMap = new Map<string, any>(
       existingPkgsData.map((p: any) => [p.id, p]),

@@ -1,0 +1,44 @@
+info:
+  name: Student — Mark File Read
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/subjects/modules/{{courseModuleId}}/mark-file-read"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: none
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('fileReadAt is set', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('fileReadAt');
+            expect(json.data.fileReadAt).to.not.equal(null);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Student only** — Menandai bahwa siswa telah membaca/membuka file materi pada course module ini.
+
+  - Idempotent: jika sudah pernah ditandai, `fileReadAt` tidak berubah.
+  - Jika semua syarat terpenuhi (file + video + semua E-LKPD), modul otomatis ditandai `isCompleted = true`.
+
+  **Path Params:**
+  - `courseModuleId` — UUID course module bertipe SUBJECT

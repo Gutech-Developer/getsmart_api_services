@@ -1,0 +1,53 @@
+info:
+  name: Grade ELKPD Submission (Teacher)
+  type: http
+  seq: 10
+
+http:
+  method: PUT
+  url: "{{baseUrl}}{{apiPrefix}}/subjects/modules/{{courseModuleId}}/submissions/{{submissionId}}/grade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "score": 85,
+        "teacherNote": "Pekerjaan bagus! Perhatikan cara penulisan langkah-langkah penyelesaian."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('Submission graded', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('score');
+            expect(json.data).to.have.property('gradedAt');
+            expect(json.data).to.have.property('gradedBy');
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Teacher only** — Memberikan nilai pada pengumpulan E-LKPD siswa.
+
+  **Body:**
+  - `score` (required) — nilai 0–100
+  - `teacherNote` (optional) — catatan/umpan balik guru
+
+  **Side effects:**
+  - `gradedAt` dan `gradedBy` otomatis diisi

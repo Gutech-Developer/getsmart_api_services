@@ -6,12 +6,13 @@ export interface DiagnosticTestAttributes {
   teacherId: string;
   testName: string;
   description: string | null;
+  passingScore: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface DiagnosticTestCreationAttributes
-  extends Optional<DiagnosticTestAttributes, "id" | "description" | "createdAt" | "updatedAt"> {}
+  extends Optional<DiagnosticTestAttributes, "id" | "description" | "passingScore" | "createdAt" | "updatedAt"> {}
 
 class DiagnosticTest
   extends Model<DiagnosticTestAttributes, DiagnosticTestCreationAttributes>
@@ -21,6 +22,7 @@ class DiagnosticTest
   public teacherId!: string;
   public testName!: string;
   public description!: string | null;
+  public passingScore!: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -46,6 +48,12 @@ DiagnosticTest.init(
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
+    },
+    passingScore: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 70.0,
+      comment: "KKM — ambang batas nilai kelulusan",
     },
   },
   {

@@ -1,0 +1,86 @@
+info:
+  name: "Google OAuth - Step 2: Callback"
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}{{apiPrefix}}/auth/google/callback"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "code": "PASTE_GOOGLE_AUTHORIZATION_CODE_HERE",
+        "redirectUri": "http://localhost:3000/auth/callback"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const json = res.getBody();
+
+        test('Google Callback berhasil (200)', function () {
+            expect(res.getStatus()).to.equal(200);
+            expect(json.success).to.be.true;
+        });
+
+        test('Response has isNewUser flag', function () {
+            expect(json.data).to.have.property('isNewUser');
+        });
+
+        // ✅ Auto-capture berdasarkan tipe user
+        if (json.success && json.data) {
+            if (json.data.isNewUser === false && json.data.tokens) {
+                // Existing user → simpan tokens langsung
+                bru.setVar('accessToken', json.data.tokens.accessToken)
+                bru.setVar('refreshToken', json.data.tokens.refreshToken)
+                console.log('✅ accessToken & refreshToken tersimpan otomatis!');      
+                
+                if (json.data.user) {
+                  bru.setVar('currentUserId', json.data.user.id);
+                  bru.setVar('currentUserEmail', json.data.user.email);
+                }
+            }
+            
+            if (json.data.isNewUser === true && json.data.tempToken) {
+                // New user → simpan tempToken untuk Step 3
+        //         pm.collectionVariables.set('tempToken', json.data.tempToken);
+                console.log('✅ New user - tempToken tersimpan! Lanjut ke Step 3: Complete Profile');
+                console.log('📧 Google email: ' + (json.data.googleProfile ? json.data.googleProfile.email : 'N/A'));
+            }
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  **Step 2 - Authorization Code Flow**
+
+  Exchange authorization code dari Google (server-to-server).
+  Backend memvalidasi code langsung ke Google dengan client_secret → data user terjamin aman.
+
+  **Request Body:**
+  - `code` (required): Authorization code dari Google redirect
+  - `redirectUri` (required): Harus sama dengan redirectUri di Step 1
+
+  **Response Scenarios:**
+
+  ✅ **User Existing** (`isNewUser: false`):
+  → Langsung return tokens + user data
+  → Auto-capture: accessToken, refreshToken, currentUserId, currentUserEmail
+
+  🆕 **User Baru** (`isNewUser: true`):
+  → Return tempToken + googleProfile
+  → Auto-capture: tempToken → gunakan di Step 3
+
+  ⚠️ **Catatan:**
+  - Authorization code hanya bisa digunakan 1x
+  - Code expire dalam ~10 menit

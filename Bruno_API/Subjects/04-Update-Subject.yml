@@ -1,0 +1,53 @@
+info:
+  name: Update Subject
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}{{apiPrefix}}/subjects/{{subjectId}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "subjectName": "Matematika Kelas 7 — Aljabar (Revised)",
+        "description": "Deskripsi diperbarui.",
+        "videoUrl": "https://youtube.com/watch?v=aljabar-v2"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('Subject updated successfully', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('subjectName');
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Teacher only** — Mengubah data materi. Minimal satu field harus dikirim.
+
+  Hanya guru pemilik materi yang dapat mengubahnya (403 jika bukan pemilik).
+
+  **Body (semua optional, min 1):**
+  - `subjectName`
+  - `description`
+  - `subjectFileUrl`
+  - `videoUrl` (kirim `null` untuk menghapus video)

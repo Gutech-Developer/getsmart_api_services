@@ -1,0 +1,51 @@
+info:
+  name: Get Diagnostic Tests by Teacher
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseUrl}}{{apiPrefix}}/diagnostic-tests/teacher/{{currentTeacherId}}?page=1&limit=10"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test('Status is 200', function () {
+            expect(res.getStatus()).to.equal(200);
+        });
+
+        test('Response has paginated tests for teacher', function () {
+            const json = res.getBody();
+            expect(json.success).to.equal(true);
+            expect(json.data).to.have.property('diagnosticTests');
+            expect(json.data).to.have.property('pagination');
+        });
+
+        test('All tests belong to the teacher', function () {
+            const json = res.getBody();
+            const teacherId = bru.getEnvVar('currentTeacherId');
+            json.data.diagnosticTests.forEach(test => {
+                expect(test.teacherId).to.equal(teacherId);
+            });
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  🔒 **Authenticated** — Mendapatkan daftar tes diagnostik milik guru tertentu.
+
+  **Path Parameters:**
+  - `teacherId` (UUID) — ID guru (auto-captured dari Create sebagai `{{currentTeacherId}}`)
+
+  **Query Parameters:**
+  - `page` (optional, default: 1)
+  - `limit` (optional, default: 10, max: 50)

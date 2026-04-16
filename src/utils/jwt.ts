@@ -55,3 +55,16 @@ export const generateGoogleTempToken = (payload: GoogleTempPayload): string => {
 export const verifyGoogleTempToken = (token: string): GoogleTempPayload => {
   return jwt.verify(token, GOOGLE_TEMP_SECRET) as GoogleTempPayload;
 };
+
+const RESET_PASSWORD_SECRET = `${ACCESS_SECRET}_reset_password`;
+const RESET_PASSWORD_TOKEN_EXPIRY = "15m";
+
+export const generateResetPasswordToken = (payload: { userId: string; email: string }): string => {
+  return jwt.sign(payload, RESET_PASSWORD_SECRET, {
+    expiresIn: RESET_PASSWORD_TOKEN_EXPIRY,
+  });
+};
+
+export const verifyResetPasswordToken = (token: string): { userId: string; email: string } => {
+  return jwt.verify(token, RESET_PASSWORD_SECRET) as { userId: string; email: string };
+};

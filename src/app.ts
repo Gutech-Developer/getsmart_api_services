@@ -9,6 +9,7 @@ import diagnosticTestRouter from "./routes/DiagnosticTestRouter";
 import { verifyInternalApiKey } from "./middleware/apikey";
 
 import "./models";
+import SubjectRouter from "./routes/SubjectRouter";
 
 class App {
   public app: Application;
@@ -88,6 +89,7 @@ class App {
 
     this.app.use("/api/auth", authRouter);
     this.app.use("/api/diagnostic-tests", diagnosticTestRouter);
+    this.app.use("/api/subjects", SubjectRouter);
   }
 }
 
