@@ -52,4 +52,4 @@ jobs:
             echo "Restart PM2 app..."
             pm2 restart getsmart-backend || pm2 start pnpm --name "getsmart-backend" -- start
 
-            echo "Deploy selesai!"
+            echo "Deploy berhasil!"
