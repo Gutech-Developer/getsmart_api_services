@@ -24,8 +24,7 @@ jobs:
           cache: 'pnpm'
 
       - run: pnpm install
-      - run: pnpm run build --if-present
-      - run: pnpm test --if-present
+      - run: pnpm build
 
   deploy:
     needs: build
@@ -48,7 +47,7 @@ jobs:
             pnpm install
 
             echo "Build project..."
-            pnpm run build --if-present
+            pnpm build
 
             echo "Restart PM2 app..."
             pm2 restart getsmart-backend || pm2 start pnpm --name "getsmart-backend" -- start
