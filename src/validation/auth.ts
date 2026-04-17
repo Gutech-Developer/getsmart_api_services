@@ -79,3 +79,23 @@ export const magicLinkVerifySchema = z.object({
     token: z.string().min(1, "Token wajib diisi"),
   }),
 });
+
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.string().pipe(z.email()),
+  }),
+});
+
+export const forgotPasswordVerifySchema = z.object({
+  query: z.object({
+    token: z.string().min(1, "Token wajib diisi"),
+  }),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(1, "Token wajib diisi"),
+    newPassword: z.string().min(8, "Password minimal 8 karakter"),
+  }),
+});
+  

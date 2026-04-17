@@ -1,10 +1,12 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from "../config/database";
+import { MagicLinkPurposeEnum } from "../types/enums";
 
 export interface MagicLinkTokenAttributes {
   id: string;
   email: string;
   token: string;
+  purpose: MagicLinkPurposeEnum;
   expiresAt: Date;
   isUsed: boolean;
   createdAt?: Date;
@@ -21,6 +23,7 @@ class MagicLinkToken
   public id!: string;
   public email!: string;
   public token!: string;
+  public purpose!: MagicLinkPurposeEnum;
   public expiresAt!: Date;
   public isUsed!: boolean;
 
@@ -47,6 +50,10 @@ MagicLinkToken.init(
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
+    },
+    purpose: {
+      type: DataTypes.ENUM(...Object.values(MagicLinkPurposeEnum)),
+      allowNull: false,
     },
     expiresAt: {
       type: DataTypes.DATE,

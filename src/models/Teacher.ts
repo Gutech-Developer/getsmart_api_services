@@ -57,6 +57,7 @@ Teacher.init(
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true,
     },
     NIP: {
       type: DataTypes.STRING,

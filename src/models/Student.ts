@@ -57,6 +57,7 @@ Student.init(
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true,
     },
     NIS: {
       type: DataTypes.STRING,

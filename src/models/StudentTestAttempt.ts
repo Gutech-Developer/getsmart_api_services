@@ -6,6 +6,7 @@ export interface StudentTestAttemptAttributes {
   studentId: string;
   diagnosticTestId: string;
   testQuestionPackageId: string;
+  courseModuleId: string;
   attemptNumber: number;
   score: number | null;
   isPassed: boolean;
@@ -29,6 +30,7 @@ class StudentTestAttempt
   public studentId!: string;
   public diagnosticTestId!: string;
   public testQuestionPackageId!: string;
+  public courseModuleId!: string;
   public attemptNumber!: number;
   public score!: number | null;
   public isPassed!: boolean;
@@ -62,6 +64,12 @@ StudentTestAttempt.init(
       type: DataTypes.UUID,
       allowNull: false,
       references: { model: "testQuestionPackages", key: "id" },
+      onDelete: "CASCADE",
+    },
+    courseModuleId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: "courseModules", key: "id" },
       onDelete: "CASCADE",
     },
     attemptNumber: {
@@ -99,8 +107,8 @@ StudentTestAttempt.init(
     indexes: [
       {
         unique: true,
-        name: "unique_student_test_package_attempt",
-        fields: ["studentId", "diagnosticTestId", "testQuestionPackageId", "attemptNumber"],
+        name: "unique_student_test_module_package_attempt",
+        fields: ["studentId", "courseModuleId", "testQuestionPackageId", "attemptNumber"],
       },
     ],
   },

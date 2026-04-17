@@ -1,6 +1,7 @@
 import bcryptjs from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
-import { Op } from "sequelize";
+import { Op, UniqueConstraintError, Transaction } from "sequelize";
+import { sequelize } from "../config/database";
 import {
   User,
   Student,
@@ -17,88 +18,111 @@ import {
   GoogleCallbackInput,
   GoogleCompleteProfileInput,
   GoogleTempPayload,
-  MagicLinkRequestInput,
   MagicLinkVerifyInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   RefreshTokenInput,
   AuthResponse,
   JwtPayload,
   TokenPair,
 } from "../types/auth.types";
-import { SystemRoleEnum, AuthProviderEnum } from "../types/enums";
+import { SystemRoleEnum, AuthProviderEnum, MagicLinkPurposeEnum } from "../types/enums";
 import {
   generateTokenPair,
   verifyRefreshToken,
   generateMagicLinkToken,
+  generateResetPasswordToken,
+  verifyResetPasswordToken,
   generateGoogleTempToken,
   verifyGoogleTempToken,
   REFRESH_TOKEN_EXPIRY_MS,
 } from "../utils/jwt";
-import { sendMagicLinkEmail } from "../utils/email";
+import { sendActivationEmail, sendForgotPasswordEmail } from "../utils/email";
 
 const BCRYPT_SALT_ROUNDS = 12;
-const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
 
-// Initialize with client_secret for Authorization Code Flow (server-to-server token exchange)
+const UNIQUE_FIELD_MESSAGES: Record<string, string> = {
+  phoneNumber: "Nomor telepon sudah terdaftar",
+  NIS: "NIS sudah terdaftar",
+  NIP: "NIP sudah terdaftar",
+  email: "Email sudah terdaftar",
+};
+
+const handleUniqueConstraintError = (error: unknown): never => {
+  if (error instanceof UniqueConstraintError) {
+    const field = error.errors[0]?.path ?? "field";
+    const message = UNIQUE_FIELD_MESSAGES[field] ?? `${field} sudah terdaftar`;
+    throw { status: 409, message };
+  }
+  throw error;
+};
+
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
 );
 
-class AuthService {
-  // ============================
-  // REGISTER (Email + Password)
-  // ============================
-  public register = async (input: RegisterInput): Promise<AuthResponse> => {
-    const existingUser = await User.findOne({ where: { email: input.email } });
-    if (existingUser) {
-      throw { status: 409, message: "Email sudah terdaftar" };
-    }
+class AuthService {      
+  public register = async (input: RegisterInput): Promise<{ user: { id: string; email: string; isActive: boolean; role: SystemRoleEnum } }> => {
 
     const hashedPassword = await bcryptjs.hash(input.password, BCRYPT_SALT_ROUNDS);
 
-    const user = await User.create({
-      email: input.email,
-      password: hashedPassword,
-      isActive: true,
-      authProvider: AuthProviderEnum.LOCAL,
-    });
+    const existingEmail = await User.findOne({ where: { email: input.email } });
+    if (existingEmail) throw { status: 409, message: "Email sudah terdaftar" };
 
-    // Assign role
+    await this.validateProfileUniqueness(input.role, input.phoneNumber, input.NIS, input.NIP);
+
     const systemRole = await this.findOrCreateRole(input.role);
-    await SystemUserRole.create({
-      userId: user.id,
-      systemRoleId: systemRole.id,
+
+    let userId: string;
+
+    await sequelize.transaction(async (t: Transaction) => {
+      const user = await User.create(
+        {
+          email: input.email,
+          password: hashedPassword,
+          isActive: false,
+          authProvider: AuthProviderEnum.LOCAL,
+        },
+        { transaction: t },
+      );
+
+      userId = user.id;
+
+      await SystemUserRole.create(
+        { userId: user.id, systemRoleId: systemRole.id },
+        { transaction: t },
+      );
+
+      await this.createProfile(user.id, input, t);
+    }).catch(handleUniqueConstraintError);
+
+    await MagicLinkToken.update(
+      { isUsed: true },
+      { where: { email: input.email, isUsed: false, purpose: MagicLinkPurposeEnum.ACTIVATION } },
+    );
+
+    const token = generateMagicLinkToken();
+    await MagicLinkToken.create({
+      email: input.email,
+      token,
+      purpose: MagicLinkPurposeEnum.ACTIVATION,
+      expiresAt: new Date(Date.now() + MAGIC_LINK_EXPIRY_MS),
     });
 
-    // Create profile based on role
-    const profile = await this.createProfile(user.id, input);
-
-    // Generate tokens
-    const jwtPayload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
-      role: input.role,
-    };
-    const tokens = generateTokenPair(jwtPayload);
-
-    // Store refresh token
-    await this.storeRefreshToken(user.id, tokens.refreshToken);
+    await sendActivationEmail(input.email, token);
 
     return {
       user: {
-        id: user.id,
-        email: user.email,
-        isActive: user.isActive,
+        id: userId!,
+        email: input.email,
+        isActive: false,
         role: input.role,
-        profile,
       },
-      tokens,
     };
   };
-
-  // ============================
-  // LOGIN (Email + Password)
-  // ============================
+      
   public login = async (input: LoginInput): Promise<AuthResponse> => {
     const user = await User.scope("withPassword").findOne({
       where: { email: input.email },
@@ -109,13 +133,13 @@ class AuthService {
     }
 
     if (!user.isActive) {
-      throw { status: 403, message: "Akun tidak aktif" };
+      throw { status: 403, message: "Akun belum aktif. Silakan cek email untuk aktivasi akun." };
     }
 
     if (!user.password) {
       throw {
         status: 400,
-        message: "Akun ini terdaftar melalui Google/Magic Link. Silakan gunakan metode login yang sesuai.",
+        message: "Akun ini terdaftar melalui Google. Silakan gunakan metode login yang sesuai.",
       };
     }
 
@@ -129,6 +153,7 @@ class AuthService {
     const jwtPayload: JwtPayload = {
       userId: user.id,
       email: user.email,
+      isActive: user.isActive,
       role,
     };
     const tokens = generateTokenPair(jwtPayload);
@@ -146,10 +171,7 @@ class AuthService {
       tokens,
     };
   };
-
-  // ============================
-  // GOOGLE OAuth - Step 1: Generate Auth URL
-  // ============================
+      
   public getGoogleAuthUrl = (redirectUri: string): string => {
     return googleClient.generateAuthUrl({
       access_type: "offline",
@@ -158,19 +180,13 @@ class AuthService {
       prompt: "consent",
     });
   };
-
-  // ============================
-  // GOOGLE OAuth - Step 2: Exchange Code (Authorization Code Flow)
-  // Backend exchanges authorization code with Google server-to-server.
-  // User data comes directly from Google — never from the frontend.
-  // ============================
+          
   public googleCallback = async (
     input: GoogleCallbackInput,
   ): Promise<
     | { isNewUser: false; auth: AuthResponse }
     | { isNewUser: true; tempToken: string; googleProfile: GoogleTempPayload }
-  > => {
-    // Exchange authorization code for tokens (server-to-server with client_secret)
+  > => {    
     let tokens: { id_token?: string | null };
     try {
       const response = await googleClient.getToken({
@@ -188,8 +204,7 @@ class AuthService {
     if (!tokens.id_token) {
       throw { status: 400, message: "Gagal mendapatkan data dari Google" };
     }
-
-    // Verify the ID token obtained from Google's server (NOT from frontend)
+    
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -199,17 +214,14 @@ class AuthService {
     if (!payload || !payload.email) {
       throw { status: 400, message: "Data Google tidak valid" };
     }
-
-    // Check if user already exists
+    
     let user = await User.findOne({
       where: {
         [Op.or]: [{ email: payload.email }, { googleId: payload.sub }],
       },
     });
 
-    if (!user) {
-      // New user — return a signed temp token for profile completion
-      // The temp token contains ONLY data from Google's verified response
+    if (!user) {            
       const googleProfile: GoogleTempPayload = {
         email: payload.email,
         name: payload.name || "User",
@@ -225,8 +237,7 @@ class AuthService {
         googleProfile,
       };
     }
-
-    // Existing user — link Google account if not already linked
+    
     if (!user.googleId) {
       await User.update(
         { googleId: payload.sub, authProvider: AuthProviderEnum.GOOGLE },
@@ -242,6 +253,7 @@ class AuthService {
 
     const jwtPayload: JwtPayload = {
       userId: user.id,
+      isActive: user.isActive,
       email: user.email,
       role,
     };
@@ -263,15 +275,10 @@ class AuthService {
       },
     };
   };
-
-  // ============================
-  // GOOGLE OAuth - Step 3: Complete Profile (new users only)
-  // Verifies the backend-signed temp token and creates the user.
-  // ============================
+        
   public googleCompleteProfile = async (
     input: GoogleCompleteProfileInput,
-  ): Promise<AuthResponse> => {
-    // Verify the temp token (signed by our server, contains Google profile data)
+  ): Promise<AuthResponse> => {    
     let googleData: GoogleTempPayload;
     try {
       googleData = verifyGoogleTempToken(input.tempToken);
@@ -281,109 +288,90 @@ class AuthService {
         message: "Token tidak valid atau sudah kedaluwarsa. Silakan ulangi proses Google login.",
       };
     }
-
-    // Guard against double-submit
+    
     const existingUser = await User.findOne({
       where: {
         [Op.or]: [{ email: googleData.email }, { googleId: googleData.googleId }],
       },
     });
+    if (existingUser) throw { status: 409, message: "Akun sudah terdaftar. Silakan login." };
 
-    if (existingUser) {
-      throw { status: 409, message: "Akun sudah terdaftar. Silakan login." };
-    }
+    await this.validateProfileUniqueness(
+      input.role,
+      input.phoneNumber || "",
+      input.NIS,
+      input.NIP,
+    );
 
-    // Create user with data from Google (NOT from frontend)
-    const user = await User.create({
-      email: googleData.email,
-      password: null,
-      isActive: true,
-      authProvider: AuthProviderEnum.GOOGLE,
-      googleId: googleData.googleId,
-    });
-
-    // Assign role
     const systemRole = await this.findOrCreateRole(input.role);
-    await SystemUserRole.create({
-      userId: user.id,
-      systemRoleId: systemRole.id,
-    });
 
-    // Create profile — fullName defaults to Google's name if not provided
-    await this.createProfile(user.id, {
-      email: googleData.email,
-      password: "",
-      fullName: input.fullName || googleData.name,
-      phoneNumber: input.phoneNumber || "",
-      role: input.role,
-      NIS: input.NIS,
-      NIP: input.NIP,
-      province: input.province,
-      city: input.city,
-      schoolId: input.schoolId,
-      schoolName: input.schoolName,
-    });
+    let createdUserId: string;
 
-    const { role, profile } = await this.getUserRoleAndProfile(user.id);
+    await sequelize.transaction(async (t: Transaction) => {
+      const user = await User.create(
+        {
+          email: googleData.email,
+          password: null,
+          isActive: true,
+          authProvider: AuthProviderEnum.GOOGLE,
+          googleId: googleData.googleId,
+        },
+        { transaction: t },
+      );
+
+      createdUserId = user.id;
+
+      await SystemUserRole.create(
+        { userId: user.id, systemRoleId: systemRole.id },
+        { transaction: t },
+      );
+
+      await this.createProfile(
+        user.id,
+        {
+          email: googleData.email,
+          password: "",
+          fullName: input.fullName || googleData.name,
+          phoneNumber: input.phoneNumber || "",
+          role: input.role,
+          NIS: input.NIS,
+          NIP: input.NIP,
+          province: input.province,
+          city: input.city,
+          schoolId: input.schoolId,
+          schoolName: input.schoolName,
+        },
+        t,
+      );
+    }).catch(handleUniqueConstraintError);
+
+    const { role, profile } = await this.getUserRoleAndProfile(createdUserId!);
 
     const jwtPayload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
+      userId: createdUserId!,
+      email: googleData.email,
+      isActive: true,
       role,
     };
     const tokens = generateTokenPair(jwtPayload);
 
-    await this.storeRefreshToken(user.id, tokens.refreshToken);
+    await this.storeRefreshToken(createdUserId!, tokens.refreshToken);
 
     return {
       user: {
-        id: user.id,
-        email: user.email,
-        isActive: user.isActive,
+        id: createdUserId!,
+        email: googleData.email,
+        isActive: true,
         role,
         profile,
       },
       tokens,
     };
   };
-
-  // ============================
-  // MAGIC LINK - Request
-  // ============================
-  public requestMagicLink = async (input: MagicLinkRequestInput): Promise<void> => {
-    const user = await User.findOne({ where: { email: input.email } });
-    if (!user) {
-      // Silent fail for security (don't reveal if email exists)
-      return;
-    }
-
-    if (!user.isActive) {
-      return;
-    }
-
-    // Invalidate previous tokens
-    await MagicLinkToken.update(
-      { isUsed: true },
-      { where: { email: input.email, isUsed: false } },
-    );
-
-    const token = generateMagicLinkToken();
-
-    await MagicLinkToken.create({
-      email: input.email,
-      token,
-      expiresAt: new Date(Date.now() + MAGIC_LINK_EXPIRY_MS),
-    });
-
-    await sendMagicLinkEmail(input.email, token);
-  };
-
-  // ============================
-  // MAGIC LINK - Verify
-  // ============================
-  public verifyMagicLink = async (input: MagicLinkVerifyInput): Promise<AuthResponse> => {
+      
+  public verifyActivation = async (input: MagicLinkVerifyInput): Promise<AuthResponse> => {
     const magicLinkToken = await MagicLinkToken.findOne({
-      where: { token: input.token, isUsed: false },
+      where: { token: input.token, isUsed: false, purpose: MagicLinkPurposeEnum.ACTIVATION },
     });
 
     if (!magicLinkToken) {
@@ -391,39 +379,39 @@ class AuthService {
     }
 
     if (magicLinkToken.isExpired()) {
-      throw { status: 400, message: "Token sudah kedaluwarsa" };
+      throw { status: 400, message: "Token sudah kedaluwarsa. Silakan request ulang aktivasi." };
     }
-
-    // Mark token as used
+    
     magicLinkToken.isUsed = true;
     await magicLinkToken.save();
 
-    let user = await User.findOne({ where: { email: magicLinkToken.email } });
-
+    const user = await User.findOne({ where: { email: magicLinkToken.email } });
     if (!user) {
       throw { status: 404, message: "User tidak ditemukan" };
     }
 
-    if (!user.isActive) {
-      throw { status: 403, message: "Akun tidak aktif" };
+    if (user.isActive) {
+      throw { status: 400, message: "Akun sudah aktif. Silakan login." };
     }
+
+    await User.update({ isActive: true }, { where: { id: user.id } });
 
     const { role, profile } = await this.getUserRoleAndProfile(user.id);
 
     const jwtPayload: JwtPayload = {
       userId: user.id,
       email: user.email,
+      isActive: true,
       role,
     };
     const tokens = generateTokenPair(jwtPayload);
-
     await this.storeRefreshToken(user.id, tokens.refreshToken);
 
     return {
       user: {
         id: user.id,
         email: user.email,
-        isActive: user.isActive,
+        isActive: true,
         role,
         profile,
       },
@@ -431,9 +419,109 @@ class AuthService {
     };
   };
 
-  // ============================
-  // REFRESH TOKEN
-  // ============================
+  public resendActivation = async (email: string): Promise<void> => {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      // Silent return for security
+      return;
+    }
+
+    if (user.isActive) {
+      throw { status: 400, message: "Akun sudah aktif. Silakan login." };
+    }
+
+    await MagicLinkToken.update(
+      { isUsed: true },
+      { where: { email, isUsed: false, purpose: MagicLinkPurposeEnum.ACTIVATION } },
+    );
+
+    const token = generateMagicLinkToken();
+    await MagicLinkToken.create({
+      email,
+      token,
+      purpose: MagicLinkPurposeEnum.ACTIVATION,
+      expiresAt: new Date(Date.now() + MAGIC_LINK_EXPIRY_MS),
+    });
+
+    await sendActivationEmail(email, token);
+  };
+
+  public forgotPassword = async (input: ForgotPasswordInput): Promise<void> => {
+    const user = await User.findOne({ where: { email: input.email } });
+    if (!user) {
+      // Silent return for security - don't reveal if email exists
+      return;
+    }
+
+    if (!user.isActive) {
+      throw { status: 403, message: "Akun belum aktif. Silakan aktivasi akun terlebih dahulu." };
+    }
+
+    if (user.authProvider === AuthProviderEnum.GOOGLE && !user.password) {
+      throw { status: 400, message: "Akun ini terdaftar melalui Google. Silakan gunakan metode login Google." };
+    }
+
+    await MagicLinkToken.update(
+      { isUsed: true },
+      { where: { email: input.email, isUsed: false, purpose: MagicLinkPurposeEnum.FORGOT_PASSWORD } },
+    );
+
+    const token = generateMagicLinkToken();
+    await MagicLinkToken.create({
+      email: input.email,
+      token,
+      purpose: MagicLinkPurposeEnum.FORGOT_PASSWORD,
+      expiresAt: new Date(Date.now() + MAGIC_LINK_EXPIRY_MS),
+    });
+
+    await sendForgotPasswordEmail(input.email, token);
+  };
+
+  public verifyForgotPassword = async (input: MagicLinkVerifyInput): Promise<{ resetToken: string }> => {
+    const magicLinkToken = await MagicLinkToken.findOne({
+      where: { token: input.token, isUsed: false, purpose: MagicLinkPurposeEnum.FORGOT_PASSWORD },
+    });
+
+    if (!magicLinkToken) {
+      throw { status: 400, message: "Token tidak valid atau sudah digunakan" };
+    }
+
+    if (magicLinkToken.isExpired()) {
+      throw { status: 400, message: "Token sudah kedaluwarsa. Silakan request ulang." };
+    }
+
+    magicLinkToken.isUsed = true;
+    await magicLinkToken.save();
+
+    const user = await User.findOne({ where: { email: magicLinkToken.email } });
+    if (!user) {
+      throw { status: 404, message: "User tidak ditemukan" };
+    }
+
+    const resetToken = generateResetPasswordToken({ userId: user.id, email: user.email });
+
+    return { resetToken };
+  };
+
+  public resetPassword = async (input: ResetPasswordInput): Promise<void> => {
+    let decoded: { userId: string; email: string };
+    try {
+      decoded = verifyResetPasswordToken(input.token);
+    } catch {
+      throw { status: 401, message: "Token reset password tidak valid atau sudah kedaluwarsa" };
+    }
+
+    const user = await User.scope("withPassword").findOne({ where: { id: decoded.userId } });
+    if (!user) {
+      throw { status: 404, message: "User tidak ditemukan" };
+    }
+
+    const hashedPassword = await bcryptjs.hash(input.newPassword, BCRYPT_SALT_ROUNDS);
+    await User.update({ password: hashedPassword }, { where: { id: user.id } });
+
+    await RefreshToken.destroy({ where: { userId: user.id } });
+  };
+      
   public refreshToken = async (input: RefreshTokenInput): Promise<TokenPair> => {
     let decoded: JwtPayload;
 
@@ -453,16 +541,15 @@ class AuthService {
       }
       throw { status: 401, message: "Refresh token tidak valid atau sudah kedaluwarsa" };
     }
-
-    // Delete old refresh token (rotation)
+    
     await storedToken.destroy();
-
-    // Get current role (might have changed)
+    
     const { role } = await this.getUserRoleAndProfile(decoded.userId);
 
     const newPayload: JwtPayload = {
       userId: decoded.userId,
       email: decoded.email,
+      isActive: decoded.isActive,
       role,
     };
     const tokens = generateTokenPair(newPayload);
@@ -471,25 +558,17 @@ class AuthService {
 
     return tokens;
   };
-
-  // ============================
-  // LOGOUT
-  // ============================
+      
   public logout = async (userId: string, refreshToken?: string): Promise<void> => {
-    if (refreshToken) {
-      // Logout specific session
+    if (refreshToken) {      
       await RefreshToken.destroy({
         where: { userId, token: refreshToken },
       });
-    } else {
-      // Logout all sessions
+    } else {      
       await RefreshToken.destroy({ where: { userId } });
     }
   };
-
-  // ============================
-  // GET CURRENT USER
-  // ============================
+      
   public getCurrentUser = async (userId: string): Promise<AuthResponse["user"]> => {
     const user = await User.findByPk(userId);
     if (!user) {
@@ -506,10 +585,34 @@ class AuthService {
       profile,
     };
   };
+      
 
-  // ============================
-  // PRIVATE HELPERS
-  // ============================
+  private validateProfileUniqueness = async (
+    role: SystemRoleEnum,
+    phoneNumber: string,
+    NIS?: string,
+    NIP?: string,
+  ): Promise<void> => {
+    if (phoneNumber) {
+      const phoneExists =
+        role === SystemRoleEnum.STUDENT
+          ? await Student.findOne({ where: { phoneNumber } })
+          : role === SystemRoleEnum.TEACHER
+            ? await Teacher.findOne({ where: { phoneNumber } })
+            : await Parent.findOne({ where: { phoneNumber } });
+      if (phoneExists) throw { status: 409, message: "Nomor telepon sudah terdaftar" };
+    }
+
+    if (NIS && role === SystemRoleEnum.STUDENT) {
+      const existing = await Student.findOne({ where: { NIS } });
+      if (existing) throw { status: 409, message: "NIS sudah terdaftar" };
+    }
+
+    if (NIP && role === SystemRoleEnum.TEACHER) {
+      const existing = await Teacher.findOne({ where: { NIP } });
+      if (existing) throw { status: 409, message: "NIP sudah terdaftar" };
+    }
+  };
 
   private findOrCreateRole = async (roleName: SystemRoleEnum): Promise<SystemRole> => {
     const [role] = await SystemRole.findOrCreate({
@@ -522,6 +625,7 @@ class AuthService {
   private createProfile = async (
     userId: string,
     input: RegisterInput,
+    transaction?: Transaction,
   ): Promise<Record<string, unknown>> => {
     const profileData = {
       userId,
@@ -533,25 +637,31 @@ class AuthService {
 
     switch (input.role) {
       case SystemRoleEnum.STUDENT: {
-        const student = await Student.create({
-          ...profileData,
-          NIS: input.NIS || null,
-          schoolId: input.schoolId || "01",
-          schoolName: input.schoolName || "MTsN Model Banda Aceh",
-        });
+        const student = await Student.create(
+          {
+            ...profileData,
+            NIS: input.NIS || null,
+            schoolId: input.schoolId || "01",
+            schoolName: input.schoolName || "MTsN Model Banda Aceh",
+          },
+          { transaction },
+        );
         return student.toJSON() as unknown as Record<string, unknown>;
       }
       case SystemRoleEnum.TEACHER: {
-        const teacher = await Teacher.create({
-          ...profileData,
-          NIP: input.NIP || null,
-          schoolId: input.schoolId || "01",
-          schoolName: input.schoolName || "MTsN Model Banda Aceh",
-        });
+        const teacher = await Teacher.create(
+          {
+            ...profileData,
+            NIP: input.NIP || null,
+            schoolId: input.schoolId || "01",
+            schoolName: input.schoolName || "MTsN Model Banda Aceh",
+          },
+          { transaction },
+        );
         return teacher.toJSON() as unknown as Record<string, unknown>;
       }
       case SystemRoleEnum.PARENT: {
-        const parent = await Parent.create(profileData);
+        const parent = await Parent.create(profileData, { transaction });
         return parent.toJSON() as unknown as Record<string, unknown>;
       }
       default:
@@ -604,8 +714,7 @@ class AuthService {
       token,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
     });
-
-    // Cleanup: remove expired tokens for this user
+    
     await RefreshToken.destroy({
       where: {
         userId,

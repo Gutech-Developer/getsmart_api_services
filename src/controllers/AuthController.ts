@@ -5,8 +5,9 @@ import {
   LoginInput,
   GoogleCallbackInput,
   GoogleCompleteProfileInput,
-  MagicLinkRequestInput,
   MagicLinkVerifyInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   RefreshTokenInput,
 } from "../types/auth.types";
 import { sendSuccess, sendError } from "../utils/response";
@@ -18,7 +19,7 @@ class AuthController {
       const input: RegisterInput = req.body;
       const result = await AuthService.register(input);
 
-      sendSuccess(res, 201, "Registrasi berhasil", result);
+      sendSuccess(res, 201, "Registrasi berhasil. Silakan cek email untuk aktivasi akun.", result);
     } catch (error: any) {
       if (error.status) {
         sendError(res, error.status, error.message);
@@ -104,34 +105,82 @@ class AuthController {
     }
   };
       
-  public requestMagicLink = async (req: Request, res: Response): Promise<void> => {
+  public resendActivation = async (req: Request, res: Response): Promise<void> => {
     try {
-      const input: MagicLinkRequestInput = req.body;
-      await AuthService.requestMagicLink(input);
+      const { email } = req.body;
+      await AuthService.resendActivation(email);
       
-      sendSuccess(res, 200, "Jika email terdaftar, magic link telah dikirim ke email Anda");
+      sendSuccess(res, 200, "Jika email terdaftar dan belum aktif, link aktivasi telah dikirim.");
     } catch (error: any) {
       if (error.status) {
         sendError(res, error.status, error.message);
         return;
       }
-      console.error("Magic link request error:", error);
+      console.error("Resend activation error:", error);
       sendError(res, 500, "Internal server error");
     }
   };
-      
-  public verifyMagicLink = async (req: Request, res: Response): Promise<void> => {
+
+  public verifyActivation = async (req: Request, res: Response): Promise<void> => {
     try {
       const input: MagicLinkVerifyInput = { token: req.query.token as string };
-      const result = await AuthService.verifyMagicLink(input);
+      const result = await AuthService.verifyActivation(input);
 
-      sendSuccess(res, 200, "Magic link verified", result);
+      sendSuccess(res, 200, "Akun berhasil diaktifkan", result);
     } catch (error: any) {
       if (error.status) {
         sendError(res, error.status, error.message);
         return;
       }
-      console.error("Magic link verify error:", error);
+      console.error("Verify activation error:", error);
+      sendError(res, 500, "Internal server error");
+    }
+  };
+
+  public forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const input: ForgotPasswordInput = req.body;
+      await AuthService.forgotPassword(input);
+      
+      sendSuccess(res, 200, "Jika email terdaftar, link reset password telah dikirim ke email Anda.");
+    } catch (error: any) {
+      if (error.status) {
+        sendError(res, error.status, error.message);
+        return;
+      }
+      console.error("Forgot password error:", error);
+      sendError(res, 500, "Internal server error");
+    }
+  };
+
+  public verifyForgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const input: MagicLinkVerifyInput = { token: req.query.token as string };
+      const result = await AuthService.verifyForgotPassword(input);
+
+      sendSuccess(res, 200, "Token valid. Silakan masukkan password baru.", result);
+    } catch (error: any) {
+      if (error.status) {
+        sendError(res, error.status, error.message);
+        return;
+      }
+      console.error("Verify forgot password error:", error);
+      sendError(res, 500, "Internal server error");
+    }
+  };
+
+  public resetPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const input: ResetPasswordInput = req.body;
+      await AuthService.resetPassword(input);
+
+      sendSuccess(res, 200, "Password berhasil direset. Silakan login dengan password baru.");
+    } catch (error: any) {
+      if (error.status) {
+        sendError(res, error.status, error.message);
+        return;
+      }
+      console.error("Reset password error:", error);
       sendError(res, 500, "Internal server error");
     }
   };

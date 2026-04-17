@@ -3,6 +3,7 @@ import { SystemRoleEnum, AuthProviderEnum } from "./enums";
 export interface JwtPayload {
   userId: string;
   email: string;
+  isActive: boolean;
   role: SystemRoleEnum;
 }
 
@@ -61,6 +62,15 @@ export interface MagicLinkRequestInput {
 
 export interface MagicLinkVerifyInput {
   token: string;
+}
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
 }
 
 export interface RefreshTokenInput {

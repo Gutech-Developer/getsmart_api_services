@@ -25,21 +25,51 @@ export const sendMail = async (options: SendMailOptions): Promise<void> => {
   });
 };
 
-export const sendMagicLinkEmail = async (
+export const sendActivationEmail = async (
   email: string,
   token: string,
 ): Promise<void> => {
   const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  const magicLink = `${baseUrl}/auth/magic-link/verify?token=${token}`;
+  const activationLink = `${baseUrl}/auth/activate?token=${token}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #2563eb;">🔐 GetSmart - Login via Magic Link</h2>
-      <p>Hai! Kamu menerima email ini karena seseorang meminta login ke akun GetSmart-mu.</p>
-      <p>Klik tombol di bawah untuk masuk:</p>
-      <a href="${magicLink}" 
+      <h2 style="color: #2563eb;">✅ GetSmart - Aktivasi Akun</h2>
+      <p>Hai! Terima kasih telah mendaftar di GetSmart.</p>
+      <p>Klik tombol di bawah untuk mengaktifkan akunmu:</p>
+      <a href="${activationLink}" 
          style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 16px 0;">
-        Masuk ke GetSmart
+        Aktifkan Akun
+      </a>
+      <p style="color: #6b7280; font-size: 14px;">Link ini akan kedaluwarsa dalam 15 menit.</p>
+      <p style="color: #6b7280; font-size: 14px;">Jika kamu tidak mendaftar di GetSmart, abaikan email ini.</p>
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="color: #9ca3af; font-size: 12px;">GetSmart - Platform E-Learning Adaptif</p>
+    </div>
+  `;
+
+  await sendMail({
+    to: email,
+    subject: "✅ Aktivasi Akun GetSmart",
+    html,
+  });
+};
+
+export const sendForgotPasswordEmail = async (
+  email: string,
+  token: string,
+): Promise<void> => {
+  const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const resetLink = `${baseUrl}/auth/reset-password?token=${token}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">🔑 GetSmart - Reset Password</h2>
+      <p>Hai! Kamu menerima email ini karena ada permintaan reset password untuk akun GetSmart-mu.</p>
+      <p>Klik tombol di bawah untuk mengatur password baru:</p>
+      <a href="${resetLink}" 
+         style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 16px 0;">
+        Reset Password
       </a>
       <p style="color: #6b7280; font-size: 14px;">Link ini akan kedaluwarsa dalam 15 menit.</p>
       <p style="color: #6b7280; font-size: 14px;">Jika kamu tidak meminta ini, abaikan email ini.</p>
@@ -50,7 +80,7 @@ export const sendMagicLinkEmail = async (
 
   await sendMail({
     to: email,
-    subject: "🔑 Login ke GetSmart",
+    subject: "🔑 Reset Password GetSmart",
     html,
   });
 };

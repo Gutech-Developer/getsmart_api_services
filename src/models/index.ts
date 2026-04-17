@@ -9,7 +9,6 @@ import MagicLinkToken from "./MagicLinkToken";
 import Course from "./Course";
 import Subject from "./Subject";
 import ELKPD from "./ELKPD";
-import ELKPDOption from "./ELKPDOption";
 import DiagnosticTest from "./DiagnosticTest";
 import TestQuestionPackage from "./TestQuestionPackage";
 import TestQuestion from "./TestQuestion";
@@ -22,7 +21,8 @@ import CourseEnrollment from "./CourseEnrollment";
 import ParentStudent from "./ParentStudent";
 import StudentTestAttempt from "./StudentTestAttempt";
 import StudentTestAnswer from "./StudentTestAnswer";
-import StudentELKPDAnswer from "./StudentELKPDAnswer";
+import StudentELKPDSubmission from "./StudentELKPDSubmission";
+import StudentModuleProgress from "./StudentModuleProgress";
 
 // =====================================================
 // ASSOCIATIONS
@@ -61,7 +61,7 @@ const setupAssociations = (): void => {
   Teacher.hasMany(Course, { foreignKey: "teacherId", as: "courses" });
   Course.belongsTo(Teacher, { foreignKey: "teacherId", as: "teacher" });
 
-  // ---- Teacher → Subject ----
+  // ---- Teacher → Subject (bank subject guru) ----
   Teacher.hasMany(Subject, { foreignKey: "teacherId", as: "subjects" });
   Subject.belongsTo(Teacher, { foreignKey: "teacherId", as: "teacher" });
 
@@ -69,12 +69,9 @@ const setupAssociations = (): void => {
   Teacher.hasMany(DiagnosticTest, { foreignKey: "teacherId", as: "diagnosticTests" });
   DiagnosticTest.belongsTo(Teacher, { foreignKey: "teacherId", as: "teacher" });
 
-  // ---- Subject → ELKPD → ELKPDOption ----
+  // ---- Subject → ELKPD (worksheet per subject) ----
   Subject.hasMany(ELKPD, { foreignKey: "subjectId", as: "eLKPDs" });
   ELKPD.belongsTo(Subject, { foreignKey: "subjectId", as: "subject" });
-
-  ELKPD.hasMany(ELKPDOption, { foreignKey: "eLKPDId", as: "options" });
-  ELKPDOption.belongsTo(ELKPD, { foreignKey: "eLKPDId", as: "eLKPD" });
 
   // ---- DiagnosticTest → TestQuestionPackage → TestQuestion ----
   DiagnosticTest.hasMany(TestQuestionPackage, { foreignKey: "diagnosticTestId", as: "packages" });
@@ -131,6 +128,9 @@ const setupAssociations = (): void => {
   TestQuestionPackage.hasMany(StudentTestAttempt, { foreignKey: "testQuestionPackageId", as: "attempts" });
   StudentTestAttempt.belongsTo(TestQuestionPackage, { foreignKey: "testQuestionPackageId", as: "testQuestionPackage" });
 
+  CourseModule.hasMany(StudentTestAttempt, { foreignKey: "courseModuleId", as: "testAttempts" });
+  StudentTestAttempt.belongsTo(CourseModule, { foreignKey: "courseModuleId", as: "courseModule" });
+
   // ---- StudentTestAnswer ----
   StudentTestAttempt.hasMany(StudentTestAnswer, { foreignKey: "attemptId", as: "answers" });
   StudentTestAnswer.belongsTo(StudentTestAttempt, { foreignKey: "attemptId", as: "attempt" });
@@ -141,15 +141,25 @@ const setupAssociations = (): void => {
   TestOption.hasMany(StudentTestAnswer, { foreignKey: "selectedOptionId", as: "studentSelections" });
   StudentTestAnswer.belongsTo(TestOption, { foreignKey: "selectedOptionId", as: "selectedOption" });
 
-  // ---- StudentELKPDAnswer ----
-  Student.hasMany(StudentELKPDAnswer, { foreignKey: "studentId", as: "eLKPDAnswers" });
-  StudentELKPDAnswer.belongsTo(Student, { foreignKey: "studentId", as: "student" });
+  // ---- StudentELKPDSubmission (siswa submit E-LKPD, guru beri nilai) ----
+  Student.hasMany(StudentELKPDSubmission, { foreignKey: "studentId", as: "eLKPDSubmissions" });
+  StudentELKPDSubmission.belongsTo(Student, { foreignKey: "studentId", as: "student" });
 
-  ELKPD.hasMany(StudentELKPDAnswer, { foreignKey: "eLKPDId", as: "studentAnswers" });
-  StudentELKPDAnswer.belongsTo(ELKPD, { foreignKey: "eLKPDId", as: "eLKPD" });
+  ELKPD.hasMany(StudentELKPDSubmission, { foreignKey: "eLKPDId", as: "submissions" });
+  StudentELKPDSubmission.belongsTo(ELKPD, { foreignKey: "eLKPDId", as: "eLKPD" });
 
-  ELKPDOption.hasMany(StudentELKPDAnswer, { foreignKey: "selectedOptionId", as: "studentSelections" });
-  StudentELKPDAnswer.belongsTo(ELKPDOption, { foreignKey: "selectedOptionId", as: "selectedOption" });
+  CourseModule.hasMany(StudentELKPDSubmission, { foreignKey: "courseModuleId", as: "eLKPDSubmissions" });
+  StudentELKPDSubmission.belongsTo(CourseModule, { foreignKey: "courseModuleId", as: "courseModule" });
+
+  Teacher.hasMany(StudentELKPDSubmission, { foreignKey: "gradedBy", as: "gradedSubmissions" });
+  StudentELKPDSubmission.belongsTo(Teacher, { foreignKey: "gradedBy", as: "grader" });
+
+  // ---- StudentModuleProgress (track progress baca file, video, E-LKPD per course module) ----
+  Student.hasMany(StudentModuleProgress, { foreignKey: "studentId", as: "moduleProgress" });
+  StudentModuleProgress.belongsTo(Student, { foreignKey: "studentId", as: "student" });
+
+  CourseModule.hasMany(StudentModuleProgress, { foreignKey: "courseModuleId", as: "studentProgress" });
+  StudentModuleProgress.belongsTo(CourseModule, { foreignKey: "courseModuleId", as: "courseModule" });
 };
 
 // Call setup immediately
@@ -167,7 +177,6 @@ export {
   Course,
   Subject,
   ELKPD,
-  ELKPDOption,
   DiagnosticTest,
   TestQuestionPackage,
   TestQuestion,
@@ -180,5 +189,6 @@ export {
   ParentStudent,
   StudentTestAttempt,
   StudentTestAnswer,
-  StudentELKPDAnswer,
+  StudentELKPDSubmission,
+  StudentModuleProgress,
 };

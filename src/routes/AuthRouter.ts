@@ -11,6 +11,9 @@ import {
   googleCompleteProfileSchema,
   magicLinkRequestSchema,
   magicLinkVerifySchema,
+  forgotPasswordSchema,
+  forgotPasswordVerifySchema,
+  resetPasswordSchema,
 } from "../validation/auth";
 
 class AuthRouter {
@@ -29,8 +32,13 @@ class AuthRouter {
     this.authRouter.post("/google/callback", validate(googleCallbackSchema), AuthController.googleCallback);
     this.authRouter.post("/google/complete-profile", validate(googleCompleteProfileSchema), AuthController.googleCompleteProfile);
     
-    this.authRouter.post("/magic-link/request", validate(magicLinkRequestSchema), AuthController.requestMagicLink);
-    this.authRouter.get("/magic-link/verify", validate(magicLinkVerifySchema), AuthController.verifyMagicLink);
+    this.authRouter.post("/activation/resend", validate(magicLinkRequestSchema), AuthController.resendActivation);
+    this.authRouter.get("/activation/verify", validate(magicLinkVerifySchema), AuthController.verifyActivation);
+    
+    this.authRouter.post("/forgot-password", validate(forgotPasswordSchema), AuthController.forgotPassword);
+    this.authRouter.get("/forgot-password/verify", validate(forgotPasswordVerifySchema), AuthController.verifyForgotPassword);
+    this.authRouter.post("/reset-password", validate(resetPasswordSchema), AuthController.resetPassword);
+
     this.authRouter.post("/refresh", validate(refreshTokenSchema), AuthController.refreshToken);
     
     this.authRouter.post("/logout", authenticate, AuthController.logout);
