@@ -1,14 +1,8 @@
 import { z } from "zod";
-
-// ─── Reusable building blocks ───────────────────────────────────────────────
+import { paginationQuery } from "./pagination";
 
 const uuidParam = (name: string) =>
   z.string().uuid(`${name} harus berupa UUID yang valid`);
-
-const paginationQuery = z.object({
-  page: z.string().regex(/^\d+$/, "Page harus berupa angka").optional().default("1"),
-  limit: z.string().regex(/^\d+$/, "Limit harus berupa angka").optional().default("10"),
-});
 
 const eLKPDBodyShape = z.object({
   title: z
@@ -18,8 +12,6 @@ const eLKPDBodyShape = z.object({
   description: z.string().max(2000, "Deskripsi maksimal 2000 karakter").optional(),
   fileUrl: z.string().pipe(z.url("fileUrl harus URL yang valid")),
 });
-
-// ─── Teacher — Subject CRUD ──────────────────────────────────────────────────
 
 export const createSubjectSchema = z.object({
   body: z.object({
@@ -65,7 +57,9 @@ export const subjectByTeacherSchema = z.object({
   query: paginationQuery,
 });
 
-// ─── Teacher — E-LKPD management ────────────────────────────────────────────
+export const mySubjectAsTeacherSchema = z.object({
+  query: paginationQuery,
+});
 
 export const addELKPDSchema = z.object({
   params: z.object({ subjectId: uuidParam("Subject ID") }),
@@ -99,8 +93,6 @@ export const elkpdParamsSchema = z.object({
   }),
 });
 
-// ─── Teacher — Grade ELKPD submissions ──────────────────────────────────────
-
 export const moduleSubmissionsSchema = z.object({
   params: z.object({ courseModuleId: uuidParam("Course Module ID") }),
   query: paginationQuery,
@@ -120,8 +112,6 @@ export const gradeELKPDSubmissionSchema = z.object({
   }),
 });
 
-// ─── Student — Module progress ───────────────────────────────────────────────
-
 export const courseModuleIdSchema = z.object({
   params: z.object({ courseModuleId: uuidParam("Course Module ID") }),
 });
@@ -136,10 +126,7 @@ export const submitELKPDSchema = z.object({
   }),
 });
 
-// ─── Legacy aliases (backward compat) ───────────────────────────────────────
-
 export const createELKPDSchema = z.object({ body: eLKPDBodyShape });
-export const paginationQuerySchema = z.object({ query: paginationQuery });
 export const diagnosticTestIdSchema = z.object({ params: z.object({ id: uuidParam("ID") }) });
 export const diagnosticTestByTeacherSchema = z.object({
   params: z.object({ teacherId: uuidParam("Teacher ID") }),

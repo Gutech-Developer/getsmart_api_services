@@ -7,6 +7,10 @@ export interface CourseAttributes {
   teacherId: string;
   schoolId: string;
   schoolName: string;
+  isArchived: boolean;
+  slug: string;
+  courseCode: string;
+  joinLink: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -20,6 +24,10 @@ class Course extends Model<CourseAttributes, CourseCreationAttributes> implement
   public teacherId!: string;
   public schoolId!: string;
   public schoolName!: string;
+  public isArchived!: boolean;
+  public slug!: string;
+  public courseCode!: string;
+  public joinLink!: string;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -49,6 +57,26 @@ Course.init(
     schoolName: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    isArchived: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    slug: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    courseCode: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    joinLink: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
     },
   },
   {

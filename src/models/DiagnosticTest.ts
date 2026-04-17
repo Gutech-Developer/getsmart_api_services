@@ -6,6 +6,7 @@ export interface DiagnosticTestAttributes {
   teacherId: string;
   testName: string;
   description: string | null;
+  durationMinutes: number;
   passingScore: number;
   createdAt?: Date;
   updatedAt?: Date;
@@ -22,6 +23,7 @@ class DiagnosticTest
   public teacherId!: string;
   public testName!: string;
   public description!: string | null;
+  public durationMinutes!: number;
   public passingScore!: number;
 
   public readonly createdAt!: Date;
@@ -49,10 +51,14 @@ DiagnosticTest.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    durationMinutes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      comment: "Durasi tes dalam menit",
+    },
     passingScore: {
       type: DataTypes.DECIMAL(5, 2),
       allowNull: false,
-      defaultValue: 70.0,
       comment: "KKM — ambang batas nilai kelulusan",
     },
   },

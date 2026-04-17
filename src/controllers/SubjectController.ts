@@ -1,54 +1,16 @@
 import { Request, Response } from "express";
 import { sendSuccess, sendError } from "../utils/response";
-import { Teacher, Student } from "../models";
+import { Teacher } from "../models";
 import {
   CreateSubjectInput,
   UpdateSubjectInput,
   CreateELKPDInput,
   UpdateELKPDInput,
-  SubmitELKPDInput,
-  GradeELKPDSubmissionInput,
 } from "../types/subject.types";
 import SubjectService from "../services/SubjectService";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-const resolveTeacherId = async (req: Request, res: Response): Promise<string | null> => {
-  const teacher = await Teacher.findOne({
-    where: { userId: req.user!.userId },
-    attributes: ["id"],
-  });
-  if (!teacher) {
-    sendError(res, 403, "Profil guru tidak ditemukan untuk akun ini");
-    return null;
-  }
-  return teacher.id;
-};
-
-const resolveStudentId = async (req: Request, res: Response): Promise<string | null> => {
-  const student = await Student.findOne({
-    where: { userId: req.user!.userId },
-    attributes: ["id"],
-  });
-  if (!student) {
-    sendError(res, 403, "Profil siswa tidak ditemukan untuk akun ini");
-    return null;
-  }
-  return student.id;
-};
-
-const parsePagination = (req: Request) => ({
-  page:  Math.max(1, parseInt(req.query.page as string) || 1),
-  limit: Math.max(1, parseInt(req.query.limit as string) || 10),
-});
-
-const p = (req: Request, key: string) => req.params[key] as string;
-
-// ─── controller ───────────────────────────────────────────────────────────────
+import { p, parsePagination, resolveTeacherId } from "../utils/helpers";
 
 class SubjectController {
-
-  // ── Teacher: Subject CRUD ────────────────────────────────────────────────
 
   public createSubject = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -61,36 +23,87 @@ class SubjectController {
       );
       sendSuccess(res, 201, "Materi berhasil dibuat", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal membuat materi");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal membuat materi",
+      );
     }
   };
 
-  public getAllSubjects = async (req: Request, res: Response): Promise<void> => {
+  public getAllSubjects = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
     try {
-      const { page, limit } = parsePagination(req);
-      const result = await SubjectService.getAllSubjects(page, limit);
+      const { page, limit, search } = parsePagination(req);
+      const result = await SubjectService.getAllSubjects(page, limit, search);
       sendSuccess(res, 200, "Daftar materi berhasil didapatkan", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal mendapatkan daftar materi");
-    }
-  }
-
-  public getSubjectsByTeacher = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { page, limit } = parsePagination(req);
-      const result = await SubjectService.getSubjectsByTeacher(p(req, "teacherId"), page, limit);
-      sendSuccess(res, 200, "Daftar materi guru berhasil didapatkan", result);
-    } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal mendapatkan materi guru");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mendapatkan daftar materi",
+      );
     }
   };
 
-  public getSubjectById = async (req: Request, res: Response): Promise<void> => {
+  public getMySubjectsAsTeacher = async (req: Request, res: Response): Promise<void> => {
+    const teacherId = await resolveTeacherId(req, res);
+    if (!teacherId) return;
+    try {
+      const { page, limit, search } = parsePagination(req);
+      const result = await SubjectService.getSubjectsByTeacher(
+        teacherId,
+        page,
+        limit,
+        search,
+      );
+      sendSuccess(res, 200, "Daftar materi guru berhasil didapatkan", result);
+    } catch (error: any) {
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mendapatkan materi guru",
+      );
+    }
+  };
+
+  public getSubjectsByTeacher = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    try {
+      const { page, limit, search } = parsePagination(req);
+      const result = await SubjectService.getSubjectsByTeacher(
+        p(req, "teacherId"),
+        page,
+        limit,
+        search,
+      );
+      sendSuccess(res, 200, "Daftar materi guru berhasil didapatkan", result);
+    } catch (error: any) {
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mendapatkan materi guru",
+      );
+    }
+  };
+
+  public getSubjectById = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
     try {
       const result = await SubjectService.getSubjectById(p(req, "id"));
       sendSuccess(res, 200, "Detail materi berhasil didapatkan", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal mendapatkan materi");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mendapatkan materi",
+      );
     }
   };
 
@@ -106,7 +119,11 @@ class SubjectController {
       );
       sendSuccess(res, 200, "Materi berhasil diperbarui", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal mengubah materi");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mengubah materi",
+      );
     }
   };
 
@@ -118,11 +135,13 @@ class SubjectController {
       await SubjectService.deleteSubject(p(req, "id"), teacherId);
       sendSuccess(res, 200, "Materi berhasil dihapus");
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal menghapus materi");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal menghapus materi",
+      );
     }
-  };
-
-  // ── Teacher: E-LKPD management ───────────────────────────────────────────
+  };  
 
   public addELKPD = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -136,7 +155,11 @@ class SubjectController {
       );
       sendSuccess(res, 201, "E-LKPD berhasil ditambahkan", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal menambahkan E-LKPD");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal menambahkan E-LKPD",
+      );
     }
   };
 
@@ -153,7 +176,11 @@ class SubjectController {
       );
       sendSuccess(res, 200, "E-LKPD berhasil diperbarui", result);
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal mengubah E-LKPD");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal mengubah E-LKPD",
+      );
     }
   };
 
@@ -169,7 +196,11 @@ class SubjectController {
       );
       sendSuccess(res, 200, "E-LKPD berhasil dihapus");
     } catch (error: any) {
-      sendError(res, error.status || 500, error.message || "Gagal menghapus E-LKPD");
+      sendError(
+        res,
+        error.status || 500,
+        error.message || "Gagal menghapus E-LKPD",
+      );
     }
   };
 

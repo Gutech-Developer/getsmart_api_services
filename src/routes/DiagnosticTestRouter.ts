@@ -2,14 +2,15 @@ import express from "express";
 import { validate } from "../middleware/validate";
 import DiagnosticTestController from "../controllers/DiagnosticTestController";
 import {
-  paginationQuerySchema,
   diagnosticTestIdSchema,
   diagnosticTestByTeacherSchema,
   createDiagnosticTestSchema,
   updateDiagnosticTestSchema,
+  myDiagnosticTestAsTeacher,
 } from "../validation/diagnosticTest";
 import { authenticate, authorize } from "../middleware/auth";
 import { SystemRoleEnum } from "../types/enums";
+import { paginationQuery } from "../validation/pagination";
 
 class DiagnosticTestRouter {
   public diagnosticTestRouter: express.Router;
@@ -32,8 +33,16 @@ class DiagnosticTestRouter {
       "/",      
       authenticate,
       authorize(SystemRoleEnum.TEACHER, SystemRoleEnum.ADMIN),
-      validate(paginationQuerySchema),
+      validate(paginationQuery),
       DiagnosticTestController.getAllDiagnosticTests,
+    );
+
+    this.diagnosticTestRouter.get(
+      "/my",
+      authenticate,
+      authorize(SystemRoleEnum.TEACHER),
+      validate(myDiagnosticTestAsTeacher),
+      DiagnosticTestController.getMyDiagnosticTestsAsTeacher,
     );
 
     this.diagnosticTestRouter.get(

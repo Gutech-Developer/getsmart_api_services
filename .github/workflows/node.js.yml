@@ -1,4 +1,4 @@
-name: Node.js CI/CD
+name: Getsmart API Service CI/CD
 
 on:
   push:
@@ -38,6 +38,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
+
             cd getsmart_api_services/
 
             echo "Pull latest code..."

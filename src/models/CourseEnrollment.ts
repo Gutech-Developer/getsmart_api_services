@@ -6,12 +6,13 @@ export interface CourseEnrollmentAttributes {
   studentId: string;
   courseId: string;
   enrolledAt: Date;
+  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface CourseEnrollmentCreationAttributes
-  extends Optional<CourseEnrollmentAttributes, "id" | "enrolledAt" | "createdAt" | "updatedAt"> {}
+  extends Optional<CourseEnrollmentAttributes, "id" | "enrolledAt" | "isActive" | "createdAt" | "updatedAt"> {}
 
 class CourseEnrollment
   extends Model<CourseEnrollmentAttributes, CourseEnrollmentCreationAttributes>
@@ -21,6 +22,7 @@ class CourseEnrollment
   public studentId!: string;
   public courseId!: string;
   public enrolledAt!: Date;
+  public isActive!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -49,6 +51,11 @@ CourseEnrollment.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
     },
   },
   {

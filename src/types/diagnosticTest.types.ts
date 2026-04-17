@@ -1,22 +1,5 @@
-export interface PaginationQuery {
-  page?: string;
-  limit?: string;
-  search?: string;
-}
-
-export interface PaginationMeta {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  itemsPerPage: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-// ─── Create Diagnostic Test (nested) ───
-
 export interface CreateTestOptionInput {
-  option: string;         // "A" | "B" | "C" | "D"
+  option: string;       
   textAnswer?: string;
   imageAnswerUrl?: string;
   isCorrect: boolean;
@@ -45,6 +28,8 @@ export interface CreateTestQuestionPackageInput {
 export interface CreateDiagnosticTestInput {
   testName: string;
   description?: string;
+  durationMinutes: number;
+  passingScore: number;
   packages: CreateTestQuestionPackageInput[];
 }
 
@@ -81,5 +66,7 @@ export interface UpsertTestQuestionPackageInput {
 export interface UpdateDiagnosticTestInput {
   testName?: string;
   description?: string | null;
+  durationMinutes?: number;
+  passingScore?: number;
   packages?: UpsertTestQuestionPackageInput[];
 }

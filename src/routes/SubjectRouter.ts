@@ -10,13 +10,10 @@ import {
   addELKPDSchema,
   updateELKPDSchema,
   elkpdParamsSchema,
-  moduleSubmissionsSchema,
-  gradeELKPDSubmissionSchema,
-  courseModuleIdSchema,
-  submitELKPDSchema,
-  paginationQuerySchema,
+  mySubjectAsTeacherSchema,
 } from "../validation/subject";
 import SubjectController from "../controllers/SubjectController";
+import { paginationQuery } from "../validation/pagination";
 
 class SubjectRouter {
   public subjectRouter: express.Router;
@@ -38,8 +35,16 @@ class SubjectRouter {
     this.subjectRouter.get(
       "/",
       authenticate,
-      validate(paginationQuerySchema),
+      validate(paginationQuery),
       SubjectController.getAllSubjects,
+    );
+
+    this.subjectRouter.get(
+      "/my",
+      authenticate,
+      authorize(SystemRoleEnum.TEACHER),
+      validate(mySubjectAsTeacherSchema),      
+      SubjectController.getMySubjectsAsTeacher,
     );
 
     this.subjectRouter.get(

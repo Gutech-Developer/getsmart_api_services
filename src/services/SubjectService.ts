@@ -18,6 +18,7 @@ import {
   GradeELKPDSubmissionInput,
 } from "../types/subject.types";
 import { ModuleTypeEnum } from "../types/enums";
+import { buildPagination } from "../utils/helpers";
 
 const MAX_LIMIT = 50;
 
@@ -117,29 +118,25 @@ class SubjectService {
     }
   };
 
-  public getAllSubjects = async (page: number, limit: number) => {
+  public getAllSubjects = async (page: number, limit: number, search?: string) => {
     try {
-      const safeLimit = Math.min(limit, MAX_LIMIT);
-      const offset = (page - 1) * safeLimit;
+      const offset = (page - 1) * limit;
+
+      const where: Record<string, any> = {};
+      if (search) {
+        where.subjectName = { [Op.iLike]: `%${search}%` };
+      }
 
       const { count, rows } = await Subject.findAndCountAll({
-        limit: safeLimit,
+        where,
+        limit,
         offset,
         order: [["createdAt", "DESC"]],
       });
 
-      const totalPages = Math.ceil(count / safeLimit);
-
       return {
         subjects: rows,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems: count,
-          itemsPerPage: limit,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-        },
+        pagination: buildPagination(page, limit, count)
       };
     } catch (error) {
       console.error("Get all subjects error:", error);
@@ -151,28 +148,26 @@ class SubjectService {
     teacherId: string,
     page: number,
     limit: number,
+    search?: string,
   ) => {
     try {
-      const safeLimit = Math.min(limit, MAX_LIMIT);
-      const offset = (page - 1) * safeLimit;
+      const offset = (page - 1) * limit;
+
+      const where: Record<string, any> = { teacherId };
+      if (search) {
+        where.subjectName = { [Op.iLike]: `%${search}%` };
+      }
 
       const { count, rows } = await Subject.findAndCountAll({
-        where: { teacherId },
-        limit: safeLimit,
+        where,
+        limit,
         offset,
         order: [["createdAt", "DESC"]],
       });
 
       return {
         subjects: rows,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / safeLimit),
-          totalItems: count,
-          itemsPerPage: safeLimit,
-          hasNextPage: page * safeLimit < count,
-          hasPrevPage: page > 1,
-        },
+        pagination: buildPagination(page, limit, count)
       };
     } catch (error) {
       console.error("Get subjects error:", error);

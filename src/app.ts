@@ -10,6 +10,8 @@ import { verifyInternalApiKey } from "./middleware/apikey";
 
 import "./models";
 import SubjectRouter from "./routes/SubjectRouter";
+import CourseRouter from "./routes/CourseRouter";
+import CourseEnrollmentRouter from "./routes/CourseEnrollmentRouter";
 
 class App {
   public app: Application;
@@ -90,6 +92,8 @@ class App {
     this.app.use("/api/auth", authRouter);
     this.app.use("/api/diagnostic-tests", diagnosticTestRouter);
     this.app.use("/api/subjects", SubjectRouter);
+    this.app.use("/api/courses", CourseRouter);
+    this.app.use("/api/course-enrollments", CourseEnrollmentRouter);
   }
 }
 

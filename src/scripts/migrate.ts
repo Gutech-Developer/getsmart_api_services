@@ -2,7 +2,7 @@ import { configDotenv } from "dotenv";
 configDotenv();
 
 import { sequelize } from "../config/database";
-import "../models"; // ensure all models are registered
+import "../models";
 
 const runMigration = async (): Promise<void> => {
   try {
@@ -10,8 +10,8 @@ const runMigration = async (): Promise<void> => {
     await sequelize.authenticate();
     console.log("Connection established.");
 
-    console.log("Running sync({ alter: true })...");
-    await sequelize.sync({ alter: true });
+    console.log("Running sync()...");
+    await sequelize.sync();
     console.log("Migration completed successfully.");
   } catch (error) {
     console.error("Migration failed:", error);

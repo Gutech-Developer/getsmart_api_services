@@ -1,13 +1,5 @@
 import { z } from "zod";
 
-export const paginationQuerySchema = z.object({
-  query: z.object({
-    page: z.string().regex(/^\d+$/, "Page harus berupa angka").optional().default("1"),
-    limit: z.string().regex(/^\d+$/, "Limit harus berupa angka").optional().default("10"),
-    search: z.string().optional(),
-  }),
-});
-
 export const diagnosticTestIdSchema = z.object({
   params: z.object({
     id: z.string().uuid("ID harus berupa UUID yang valid"),
@@ -16,11 +8,20 @@ export const diagnosticTestIdSchema = z.object({
 
 export const diagnosticTestByTeacherSchema = z.object({
   params: z.object({
-    teacherId: z.string().uuid("Teacher ID harus berupa UUID yang valid"),
+    teacherId: z.uuid("Teacher ID harus berupa UUID yang valid"),
   }),
   query: z.object({
     page: z.string().regex(/^\d+$/, "Page harus berupa angka").optional().default("1"),
     limit: z.string().regex(/^\d+$/, "Limit harus berupa angka").optional().default("10"),
+    search: z.string().optional(),
+  }),
+});
+
+export const myDiagnosticTestAsTeacher = z.object({
+  query: z.object({
+    page: z.string().regex(/^\d+$/, "Page harus berupa angka").optional().default("1"),
+    limit: z.string().regex(/^\d+$/, "Limit harus berupa angka").optional().default("10"),
+    search: z.string().optional(),
   }),
 });
 
@@ -87,6 +88,8 @@ export const createDiagnosticTestSchema = z.object({
   body: z.object({
     testName: z.string().min(3, "Nama tes minimal 3 karakter").max(255, "Nama tes maksimal 255 karakter"),
     description: z.string().max(2000, "Deskripsi maksimal 2000 karakter").optional(),
+    passingScore: z.number().min(0, "Passing score minimal 0").max(100, "Passing score maksimal 100"),
+    durationMinutes: z.number().int().positive("Durasi harus bilangan bulat positif"),
     packages: z.array(testQuestionPackageSchema)
       .min(1, "Minimal 1 paket soal harus dibuat"),
   }),
