@@ -33,7 +33,7 @@ export const sendActivationEmail = async (
   const activationLink = `${baseUrl}/auth/activate?token=${token}`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
       <h2 style="color: #2563eb;">✅ GetSmart - Aktivasi Akun</h2>
       <p>Hai! Terima kasih telah mendaftar di GetSmart.</p>
       <p>Klik tombol di bawah untuk mengaktifkan akunmu:</p>
