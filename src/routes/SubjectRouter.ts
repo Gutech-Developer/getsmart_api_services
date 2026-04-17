@@ -89,13 +89,13 @@ class SubjectRouter {
       SubjectController.updateELKPD,
     );
 
-    // this.subjectRouter.delete(
-    //   "/:subjectId/elkpd/:elkpdId",
-    //   authenticate,
-    //   authorize(SystemRoleEnum.TEACHER),
-    //   validate(elkpdParamsSchema),
-    //   SubjectController.deleteELKPD,
-    // );
+    this.subjectRouter.delete(
+      "/:subjectId/elkpd/:elkpdId",
+      authenticate,
+      authorize(SystemRoleEnum.TEACHER),
+      validate(elkpdParamsSchema),
+      SubjectController.deleteELKPD,
+    );
 
     // ── Teacher: ELKPD grading ────────────────────────────────────────────
     // this.subjectRouter.get(
